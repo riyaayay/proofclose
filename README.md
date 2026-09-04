@@ -2,7 +2,7 @@
 
 One-sentence controller loop: `settlement row → merchant ledger → bank deposit → close or exception`.
 
-**Live URL:** _Deploy to Vercel — add URL here._
+**Live URL:** [_URL_](https://proofclose.vercel.app/)
 
 ---
 
