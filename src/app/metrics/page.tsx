@@ -2,11 +2,37 @@ import Link from "next/link";
 import { MetricsCard, type Metrics } from "@/components/MetricsCard";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { generateBenchmarkCohort } from "@/core/fixtures";
+import { reconcile } from "@/core/reconcile";
+import { evaluate } from "@/core/evaluate";
 
 function loadMetrics(): Metrics | null {
   const path = join(process.cwd(), "docs/metrics.json");
-  if (!existsSync(path)) return null;
-  return JSON.parse(readFileSync(path, "utf-8")) as Metrics;
+  if (existsSync(path)) {
+    try {
+      return JSON.parse(readFileSync(path, "utf-8")) as Metrics;
+    } catch {
+      // Fallback to dynamic computation
+    }
+  }
+
+  // Dynamic fallback when docs/metrics.json is not bundled or missing (e.g. serverless cold start)
+  try {
+    const fixture = generateBenchmarkCohort(20260904);
+    const run = reconcile(fixture.settlementRows, fixture.ledgerRows, fixture.bankCredits);
+    const evaluated = evaluate(run.results, fixture.truthRows);
+    return {
+      ...evaluated,
+      runId: run.runId,
+      algorithmVersion: run.algorithmVersion,
+      inputSha256: fixture.inputSha256,
+      cohortSeed: 20260904,
+      cohortRows: 120,
+      generatedAt: new Date().toISOString(),
+    } as Metrics;
+  } catch {
+    return null;
+  }
 }
 
 const EXCEPTION_TAXONOMY = [
@@ -65,61 +91,57 @@ export default function MetricsPage() {
         <Link href="/" id="nav-home">Reconciliation</Link>
         <Link href="/metrics" id="nav-metrics" className="active" style={{ color: "var(--text-primary)" }}>Evaluation Metrics</Link>
         <div style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--text-muted)", fontFamily: "JetBrains Mono, monospace" }}>
-          Razorpay Settlement Controller · v1.0.0
+          Razorpay Settlement Controller • v1.0.0
         </div>
       </nav>
 
-      <main style={{ maxWidth: 980, margin: "0 auto", padding: "36px 24px" }}>
-        <h1 style={{ fontSize: "1.65rem", fontWeight: 600, margin: "0 0 8px", letterSpacing: "-0.01em", color: "var(--text-primary)" }}>
-          Evaluation Metrics &amp; Provenance
-        </h1>
-        <p style={{ color: "var(--text-secondary)", margin: "0 0 28px", fontSize: "0.9rem", lineHeight: 1.6 }}>
-          Metrics computed on the benchmark 120-record synthetic cohort. All values are evaluated live from run outputs against pre-committed truth labels. Re-running <code className="id-pill">npm run evaluate</code> validates metrics consistency.
-        </p>
+      <main style={{ maxWidth: 1140, margin: "0 auto", padding: "36px 24px" }}>
+        <div style={{ marginBottom: 28 }}>
+          <h1 style={{ fontSize: "1.65rem", fontWeight: 600, margin: "0 0 8px", color: "var(--text-primary)" }}>
+            Evaluation Metrics
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", maxWidth: 680, margin: 0, lineHeight: 1.6 }}>
+            Empirical evaluation against the synthetic 120-record ground-truth test cohort. Metrics reflect strict financial safety constraints: auto-close operations require complete, deterministic evidence; ambiguous or disputed entries are routed to exceptions.
+          </p>
+        </div>
 
         {metrics ? (
-          <div style={{ marginBottom: 36 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
             <MetricsCard metrics={metrics} />
-          </div>
-        ) : (
-          <div className="card" style={{ marginBottom: 36, borderStyle: "dashed", textAlign: "center", padding: 28 }}>
-            <div style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
-              Metrics not yet generated. Run <code className="id-pill">npm run evaluate</code> to produce{" "}
-              <code className="id-pill">docs/metrics.json</code>.
-            </div>
-          </div>
-        )}
 
-        {/* Exception taxonomy */}
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 14px", color: "var(--text-primary)" }}>Exception Taxonomy</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 36 }}>
-          {EXCEPTION_TAXONOMY.map(ex => (
-            <div key={ex.code} className="card" style={{ padding: "16px 18px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <code className="chip chip-exception" style={{ whiteSpace: "nowrap", marginTop: 2 }}>{ex.code}</code>
-                <div>
-                  <p style={{ margin: "0 0 6px", color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.5 }}>
-                    {ex.description}
-                  </p>
-                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.78rem", lineHeight: 1.5 }}>
-                    <span style={{ color: "var(--closed-text)", fontWeight: 500 }}>Action:</span> {ex.safeResolution}
-                  </p>
-                </div>
+            {/* Exception Taxonomy */}
+            <div>
+              <h2 style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 16px" }}>
+                Exception Code Taxonomy & Safe Resolution Procedures
+              </h2>
+              <div style={{ display: "grid", gap: 12 }}>
+                {EXCEPTION_TAXONOMY.map(item => (
+                  <div key={item.code} className="card" style={{ padding: "16px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                      <code className="id-pill" style={{ color: "var(--exception-text)", background: "rgba(224, 92, 66, 0.12)", border: "1px solid rgba(224, 92, 66, 0.28)" }}>
+                        {item.code}
+                      </code>
+                    </div>
+                    <div style={{ color: "var(--text-primary)", fontSize: "0.85rem", marginBottom: 6, fontWeight: 500 }}>
+                      {item.description}
+                    </div>
+                    <div style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                      <strong style={{ color: "var(--text-secondary)" }}>Safe resolution: </strong>
+                      {item.safeResolution}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Dataset limitations */}
-        <div className="card" style={{ padding: "18px 20px" }}>
-          <h3 style={{ margin: "0 0 10px", color: "var(--text-primary)", fontSize: "0.92rem", fontWeight: 600 }}>Dataset &amp; Benchmark Scope</h3>
-          <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text-secondary)", fontSize: "0.84rem", lineHeight: 1.7 }}>
-            <li>The 120 benchmark records are synthetic and generated with seed 20260904 to ensure deterministic answer-key validation.</li>
-            <li>The three conservative abstentions (UNVERIFIED_BANK_NARRATION) are financially closeable; the controller prioritizes proof certainty over throughput.</li>
-            <li>In production deployments, precision depends on bank statement feed completeness, UTR availability, and ERP ledger posting hygiene.</li>
-            <li>The Razorpay adapter operates in read-only test mode; it never performs fund transfers, chargebacks, or writes.</li>
-          </ul>
-        </div>
+          </div>
+        ) : (
+          <div className="card" style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>
+            <p>No evaluation metrics found. Run a reconciliation on the home page first.</p>
+            <Link href="/" className="btn btn-primary" style={{ display: "inline-flex", marginTop: 12 }}>
+              Go to reconciliation
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   );

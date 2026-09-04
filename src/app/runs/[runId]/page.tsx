@@ -22,11 +22,18 @@ export default function RunDetailPage() {
   const fetchRun = useCallback(async () => {
     try {
       const res = await fetch(`/api/runs/${runId}`);
-      if (!res.ok) throw new Error("Run not found");
-      const data = await res.json() as ReconciliationRun;
-      setRun(data);
+      const text = await res.text();
+      let data: (ReconciliationRun & { error?: string }) | null = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {}
+
+      if (!res.ok || !data) {
+        throw new Error(data?.error || (text && text.length < 300 ? text : "Run not found"));
+      }
+      setRun(data as ReconciliationRun);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

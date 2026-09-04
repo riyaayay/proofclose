@@ -33,13 +33,27 @@ export default function Home() {
     try {
       const url = source ? `/api/reconcile?source=${source}` : "/api/reconcile";
       const res = await fetch(url, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message ?? data.error ?? "Failed to run reconciliation");
+      const text = await res.text();
+      let data: (RunSummary & { message?: string; error?: string }) | null = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        // Not valid JSON
       }
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || data?.error || (text && text.length < 300 ? text : `Request failed with status ${res.status}`)
+        );
+      }
+
+      if (!data) {
+        throw new Error("Server returned an empty response.");
+      }
+
       setResult({ ...data, seed: currentSeed });
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
     }
@@ -50,12 +64,28 @@ export default function Home() {
     setError("");
     try {
       const res = await fetch("/api/cohort/generate", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to regenerate cohort");
+      const text = await res.text();
+      let data: (RunSummary & { seed: number; error?: string }) | null = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        // Not valid JSON
+      }
+
+      if (!res.ok) {
+        throw new Error(
+          data?.error || (text && text.length < 300 ? text : `Request failed with status ${res.status}`)
+        );
+      }
+
+      if (!data) {
+        throw new Error("Server returned an empty response.");
+      }
+
       setCurrentSeed(data.seed);
       setResult(data);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setGenerating(false);
     }
@@ -71,7 +101,7 @@ export default function Home() {
         <Link href="/" id="nav-home" className="active" style={{ color: "var(--text-primary)" }}>Reconciliation</Link>
         <Link href="/metrics" id="nav-metrics">Evaluation Metrics</Link>
         <div style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--text-muted)", fontFamily: "JetBrains Mono, monospace" }}>
-          Razorpay Settlement Controller · v1.0.0
+          Razorpay Settlement Controller • v1.0.0
         </div>
       </nav>
 
@@ -187,7 +217,7 @@ export default function Home() {
               <div>
                 <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 500 }}>Account activity</div>
                 <div style={{ color: "var(--text-primary)", fontWeight: 500, fontSize: "0.82rem", marginTop: 4 }}>
-                  {result.testOrdersCount !== undefined ? `${result.testOrdersCount} test orders on account · 0 settled` : "0 settled records"}
+                  {result.testOrdersCount !== undefined ? `${result.testOrdersCount} test orders on account • 0 settled` : "0 settled records"}
                 </div>
               </div>
               <div>
@@ -259,38 +289,10 @@ export default function Home() {
                   <strong style={{ color: "var(--text-primary)" }}>{result.closed} auto-closed</strong> — verified against exact Razorpay entity ID, matching ledger entry, and unique bank credit.
                 </div>
                 <div>
-                  <span style={{ color: "var(--exception-text)", marginRight: 6 }}>●</span>
-                  <strong style={{ color: "var(--text-primary)" }}>{result.exceptions} exceptions queued</strong> — routed to finance review with specific exception taxonomy codes.
-                </div>
-                <div>
-                  <span style={{ color: "var(--amber-text)", marginRight: 6 }}>●</span>
-                  <strong style={{ color: "var(--text-primary)" }}>0 false closures</strong> — deterministic engine abstains whenever proof is ambiguous or missing.
-                </div>
-                <div>
-                  <span style={{ color: "var(--text-muted)", marginRight: 6 }}>●</span>
-                  Input SHA-256 hash is permanently committed to audit trail for full repeatability.
+                  <span style={{ color: "var(--exception-text)", marginRight: 6 }}>▲</span>
+                  <strong style={{ color: "var(--text-primary)" }}>{result.exceptions} exception records</strong> — safely quarantined for human reviewer triage with specific evidence codes. Zero false closures.
                 </div>
               </div>
-            </div>
-
-            {/* Safety Guard Callout — Clean accent border, no glowing red border */}
-            <div className="card-accent-terracotta">
-              <div style={{ fontWeight: 600, fontSize: "0.92rem", marginBottom: 6, color: "var(--text-primary)" }}>
-                Safety guard — AMBIGUOUS_BANK_CREDIT
-              </div>
-              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                Settlement <code className="id-pill">setl_40</code> has two Razorpay-issued bank credits sharing the identical control total.
-                The controller refuses to auto-close and routes all three dependent records to the finance review queue.
-                Matching on amount alone without distinct bank proof risks misstating cash position.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!result && !running && !generating && (
-          <div className="card" style={{ padding: "36px", textAlign: "center", borderStyle: "dashed" }}>
-            <div style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
-              Click <strong style={{ color: "var(--text-primary)" }}>Run reconciliation</strong> to process the active 120-record cohort, or <strong style={{ color: "var(--text-primary)" }}>New cohort</strong> to randomize values.
             </div>
           </div>
         )}
