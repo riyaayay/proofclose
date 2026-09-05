@@ -34,8 +34,17 @@ function getNetPaise(result: RowResult): number | undefined {
   }
 }
 
+/** Returns the numeric suffix of a row ID like "rp-42" → 42.
+ *  Non-matching IDs return NaN, which floats to the end. */
+const rowIdNum = (id: string): number => {
+  const m = id.match(/-(\d+)$/);
+  return m ? parseInt(m[1], 10) : NaN;
+};
+
 export function ExceptionTable({ results, filter = "ALL", onRowClick }: ExceptionTableProps) {
-  const visible = filter === "ALL" ? results : results.filter(r => r.decision === filter);
+  const visible = (filter === "ALL" ? results : results.filter(r => r.decision === filter))
+    .slice()
+    .sort((a, b) => rowIdNum(a.settlementRowId) - rowIdNum(b.settlementRowId));
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -47,7 +56,7 @@ export function ExceptionTable({ results, filter = "ALL", onRowClick }: Exceptio
             <th>Exception / Reason</th>
             <th>Ledger ID</th>
             <th>Bank Txn</th>
-            <th>Net (paise)</th>
+            <th>Net (₹)</th>
             <th>Review</th>
           </tr>
         </thead>

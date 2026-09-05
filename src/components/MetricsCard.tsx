@@ -255,8 +255,8 @@ export function MetricsCard({ metrics }: { metrics: Metrics }) {
             </div>
           )}
           <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2 }}>
-            Algorithm: {metrics.algorithmVersion ?? "v1.0.0"} · Cohort: synthetic, {metrics.cohortRows ?? 122} rows
-            {novelRows > 0 ? ` (${taxonomyTotal} taxonomy + ${novelRows} novel-pattern)` : ""}, seed {metrics.cohortSeed ?? 20260904}.
+            Algorithm: {metrics.algorithmVersion ?? "v1.0.0"} · Cohort: synthetic, {taxonomyTotal + novelRows} rows
+            {novelRows > 0 ? ` (${taxonomyTotal} standard-taxonomy + ${novelRows} novel-pattern)` : ""}, seed {metrics.cohortSeed ?? 20260904}.
           </div>
         </div>
       </div>
