@@ -44,12 +44,12 @@ describe("ExceptionTable — row-ID numeric sort", () => {
     );
   });
 
-  it('column header reads "Net (\u20B9)" not "Net (paise)"', () => {
+  it('column header reads "Net (\u20B9)" not "Net (rupees)"', () => {
     const src = readFileSync(
       join(process.cwd(), "src/components/ExceptionTable.tsx"),
       "utf-8"
     );
-    expect(src).not.toContain("Net (paise)");
+    expect(src).not.toContain("Net (rupees)");
   });
 });
 

@@ -183,7 +183,7 @@ export default function Home() {
             </div>
             <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
               <span className="chip chip-neutral">Audit-locked</span>
-              <span className="chip chip-neutral">Paise precision</span>
+              <span className="chip chip-neutral">Rupees precision</span>
             </div>
           </div>
         </div>
