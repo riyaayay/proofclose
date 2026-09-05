@@ -18,11 +18,22 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
+
+      # better-sqlite3 is a native C++ addon; install build tools so
+      # node-gyp can recompile it for the exact Node.js ABI on this runner.
+      - name: Install native build tools
+        run: sudo apt-get install -y python3 build-essential
 
       - name: Install dependencies
         run: npm install
+
+      # Recompile the native addon for this runner OS/arch/ABI.
+      # Without this step, better-sqlite3 crashes with SIGSEGV on ubuntu-latest
+      # because the pre-built binary in node_modules was built for a different ABI.
+      - name: Rebuild better-sqlite3 native addon
+        run: npm rebuild better-sqlite3
 
       - name: Generate fixture data
         run: npm run generate:data
