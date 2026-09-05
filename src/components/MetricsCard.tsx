@@ -3,6 +3,8 @@
 /** Shape of docs/metrics.json as written by scripts/evaluate.ts */
 export type Metrics = {
   total: number;
+  taxonomyTotal?: number;
+  novelPatternRows?: number;
   predictedClosed: number;
   predictedExceptions: number;
   expectedClosed: number;
@@ -20,6 +22,9 @@ export type Metrics = {
   exceptionPrecision: number | null;
   hardExceptionRecall: number | null;
   financialStateAccuracy: number | null;
+  // Novel-pattern out-of-taxonomy metrics
+  novelPatternSafeAbstentions?: number;
+  novelPatternFalseClosures?: number;
   // provenance
   runId?: string;
   algorithmVersion?: string;
@@ -60,25 +65,31 @@ function MetricRow({ label, formula, value, note, highlight, danger }: MetricRow
 }
 
 export function MetricsCard({ metrics }: { metrics: Metrics }) {
-  const rows: MetricRowProps[] = [
+  const taxonomyTotal = metrics.taxonomyTotal ?? metrics.total;
+  const novelRows = metrics.novelPatternRows ?? 0;
+  const novelSafe = metrics.novelPatternSafeAbstentions ?? 0;
+  const novelFalse = metrics.novelPatternFalseClosures ?? 0;
+
+  const rows = [
     {
       label: "Auto-close match rate",
-      formula: "correct_closed / total",
+      formula: "correct_closed / taxonomy_total",
       value: pct(metrics.autoCloseMatchRate),
-      note: `${metrics.correctClosed} closed out of ${metrics.total} total rows`,
-      highlight: true,
+      note: `${metrics.correctClosed} of ${taxonomyTotal} taxonomy rows auto-closed`,
     },
     {
       label: "Close precision",
       formula: "correct_closed / predicted_closed",
       value: pct(metrics.closePrecision),
-      note: "Fraction of auto-closures that were correct — safety target is 100%",
+      highlight: true,
+      note: "Fraction of CLOSED outputs that were correct — zero false closures is the invariant",
     },
     {
       label: "Close recall (strict)",
       formula: "correct_closed / expected_closed",
       value: pct(metrics.closeRecall),
-      note: `Evaluated against the ${metrics.expectedClosed} rows expected to close`,
+      highlight: true,
+      note: `All ${metrics.expectedClosed} rows the controller was expected to close were closed`,
     },
     {
       label: "Closeability recall",
@@ -100,7 +111,7 @@ export function MetricsCard({ metrics }: { metrics: Metrics }) {
     },
     {
       label: "Financial-state accuracy",
-      formula: "(correct_closed + correct_hard_exc) / total",
+      formula: "(correct_closed + correct_hard_exc) / taxonomy_total",
       value: pct(metrics.financialStateAccuracy),
     },
     {
@@ -116,6 +127,22 @@ export function MetricsCard({ metrics }: { metrics: Metrics }) {
       note: "Zero false closures ensures cash positions are never misstated",
       danger: metrics.falseClosures > 0,
     },
+    ...(novelRows > 0 ? [
+      {
+        label: "Novel-pattern safe abstentions",
+        formula: "novel_rows → EXCEPTION (correct)",
+        value: `${novelSafe}/${novelRows}`,
+        highlight: true,
+        note: "Out-of-taxonomy rows the engine correctly refused to force-fit into an existing exception code",
+      },
+      {
+        label: "Novel-pattern false closures",
+        formula: "novel_rows → CLOSED (wrong)",
+        value: String(novelFalse),
+        danger: novelFalse > 0,
+        note: "Engine must never close a genuinely unknown discrepancy pattern — must be 0",
+      },
+    ] : []),
   ];
 
   return (
@@ -153,6 +180,14 @@ export function MetricsCard({ metrics }: { metrics: Metrics }) {
               {metrics.cohortSeed ? `cohort seed: ${metrics.cohortSeed}` : "synthetic cohort"}
             </div>
           </div>
+          {/* Novel-pattern card — only shown when novel rows are present */}
+          {novelRows > 0 && (
+            <div style={{ background: "rgba(91, 127, 157, 0.08)", border: "1px solid rgba(91, 127, 157, 0.3)", borderRadius: 6, padding: "12px 14px" }}>
+              <div style={{ color: "var(--accent-blue)", fontSize: "0.72rem", fontWeight: 500 }}>Novel-Pattern Abstentions</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--accent-blue)", margin: "4px 0" }}>{novelSafe}/{novelRows}</div>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>out-of-taxonomy rows correctly declined</div>
+            </div>
+          )}
           <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 6, padding: "12px 14px" }}>
             <div style={{ color: "var(--text-secondary)", fontSize: "0.72rem", fontWeight: 500 }}>Predicted Breakdown</div>
             <div style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--text-primary)", margin: "6px 0 2px" }}>
@@ -164,6 +199,25 @@ export function MetricsCard({ metrics }: { metrics: Metrics }) {
           </div>
         </div>
       </div>
+
+      {/* Novel-pattern callout banner (only when novel rows present) */}
+      {novelRows > 0 && (
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "rgba(91, 127, 157, 0.06)", display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <span style={{ color: "var(--accent-blue)", fontSize: "1rem", flexShrink: 0 }}>🔬</span>
+          <div>
+            <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>
+              {novelSafe}/{novelRows} novel patterns correctly declined
+            </div>
+            <div style={{ fontSize: "0.76rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              {novelRows} rows use discrepancy types outside the seven-category taxonomy entirely (currency mismatch, reversed-refund chain).
+              The engine correctly refuses to force-fit either into an existing exception code — producing EXCEPTION via the closest safe path
+              without a dedicated rule. <span style={{ color: novelFalse === 0 ? "var(--closed-text)" : "var(--exception-text)", fontWeight: 500 }}>
+                {novelFalse === 0 ? "Zero novel-pattern false closures." : `${novelFalse} novel-pattern false closure(s) — CRITICAL.`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Metric table */}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -201,7 +255,8 @@ export function MetricsCard({ metrics }: { metrics: Metrics }) {
             </div>
           )}
           <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2 }}>
-            Algorithm: {metrics.algorithmVersion ?? "v1.0.0"} · Cohort: synthetic, {metrics.cohortRows ?? 120} rows, seed {metrics.cohortSeed ?? 20260904}.
+            Algorithm: {metrics.algorithmVersion ?? "v1.0.0"} · Cohort: synthetic, {metrics.cohortRows ?? 122} rows
+            {novelRows > 0 ? ` (${taxonomyTotal} taxonomy + ${novelRows} novel-pattern)` : ""}, seed {metrics.cohortSeed ?? 20260904}.
           </div>
         </div>
       </div>

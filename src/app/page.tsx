@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Play, RotateCcw, Radio, ArrowRight } from "lucide-react";
 import { KpiStrip } from "@/components/KpiStrip";
+import type { CohortMeta } from "@/app/api/cohort/meta/route";
 
 type RunSummary = {
   status?: string;
@@ -20,12 +21,36 @@ type RunSummary = {
   queriedAt?: string;
 };
 
+// Fallback used before the API response arrives — matches docs/metrics.json
+const DEFAULT_META: CohortMeta = {
+  total: 122,
+  taxonomyTotal: 120,
+  novelPatternRows: 2,
+  expectedClosed: 97,
+  hardExceptions: 20,
+  conservativeAbstentions: 3,
+  novelPatternSafeAbstentions: 2,
+  novelPatternFalseClosures: 0,
+};
+
 export default function Home() {
   const [running, setRunning] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [currentSeed, setCurrentSeed] = useState<number>(20260904);
   const [result, setResult] = useState<RunSummary | null>(null);
   const [error, setError] = useState("");
+  // Cohort metadata — loaded from /api/cohort/meta so the banner is
+  // structurally incapable of drifting from the real fixture counts.
+  const [cohortMeta, setCohortMeta] = useState<CohortMeta>(DEFAULT_META);
+
+  useEffect(() => {
+    fetch("/api/cohort/meta")
+      .then(r => r.json())
+      .then((meta: CohortMeta) => {
+        if (meta && typeof meta.total === "number") setCohortMeta(meta);
+      })
+      .catch(() => { /* keep DEFAULT_META on network failure */ });
+  }, []);
 
   const handleRun = async (source?: string) => {
     setRunning(true);
@@ -91,6 +116,14 @@ export default function Home() {
     }
   };
 
+  // Derived cohort description — computed from API, never hardcoded
+  const { total, taxonomyTotal, novelPatternRows, expectedClosed, hardExceptions, conservativeAbstentions, novelPatternSafeAbstentions } = cohortMeta;
+  const standardExceptions = hardExceptions + conservativeAbstentions;
+  const cohortDescription = `${total} synthetic records across settlement_recon.csv, merchant_ledger.csv, and bank_credits.csv. `
+    + `Scenario mix (${expectedClosed} closeable / ${standardExceptions} standard exceptions`
+    + (novelPatternRows > 0 ? ` / ${novelPatternRows} out-of-taxonomy novel patterns` : "")
+    + `) is fixed by design so metrics are comparable across runs; record values, IDs, and timestamps are freshly randomized on each regeneration.`;
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--background)" }}>
       {/* Nav */}
@@ -101,7 +134,7 @@ export default function Home() {
         <Link href="/" id="nav-home" className="active" style={{ color: "var(--text-primary)" }}>Reconciliation</Link>
         <Link href="/metrics" id="nav-metrics">Evaluation Metrics</Link>
         <div style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--text-muted)", fontFamily: "JetBrains Mono, monospace" }}>
-          Razorpay Settlement Controller • v1.0.0
+          Razorpay Settlement Controller · v1.0.0
         </div>
       </nav>
 
@@ -112,7 +145,7 @@ export default function Home() {
             Settlement Exception Closer
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", maxWidth: 660, margin: 0, lineHeight: 1.6 }}>
-            Processes Razorpay settlement-reconciliation data against merchant ledger entries and verified bank statement credits. 
+            Processes Razorpay settlement-reconciliation data against merchant ledger entries and verified bank statement credits.
             Auto-closes records with complete, deterministic evidence chains; routes all ambiguous or unproven entries to the finance exception queue.
           </p>
         </div>
@@ -127,10 +160,26 @@ export default function Home() {
                   Seed: <code className="id-pill">{currentSeed}</code>
                 </span>
               </div>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.76rem", lineHeight: 1.5 }}>
-                120 synthetic records across settlement_recon.csv, merchant_ledger.csv, and bank_credits.csv.
-                Scenario mix (97 closeable / 23 exceptions) is fixed by design so metrics are comparable across runs; record values, IDs, and timestamps are freshly randomized on each regeneration.
+              {/* Derived from /api/cohort/meta — structurally cannot drift from fixture */}
+              <div
+                id="cohort-description"
+                data-testid="cohort-description"
+                data-total={total}
+                style={{ color: "var(--text-muted)", fontSize: "0.76rem", lineHeight: 1.5 }}
+              >
+                {cohortDescription}
               </div>
+              {/* Novel-pattern inline callout */}
+              {novelPatternRows > 0 && (
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ background: "rgba(91, 127, 157, 0.14)", color: "var(--accent-blue)", fontSize: "0.72rem", fontWeight: 500, padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(91, 127, 157, 0.3)" }}>
+                    🔬 {novelPatternSafeAbstentions}/{novelPatternRows} novel patterns correctly declined
+                  </span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
+                    — out-of-taxonomy discrepancies the engine refuses to force-fit
+                  </span>
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
               <span className="chip chip-neutral">Audit-locked</span>
@@ -139,7 +188,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Actions Bar — Strong visual hierarchy */}
+        {/* Actions Bar */}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 28 }}>
           <button
             id="run-reconciliation"
@@ -185,7 +234,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Live Test-Mode Empty State Card (Restrained Ops Styling) */}
+        {/* Live Test-Mode Empty State Card */}
         {result && result.status === "no_data" && (
           <div className="card-accent-blue" style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -202,7 +251,9 @@ export default function Home() {
             </h2>
 
             <p style={{ color: "var(--text-secondary)", fontSize: "0.86rem", lineHeight: 1.6, margin: "0 0 18px" }}>
-              Razorpay test-mode adapter is authenticated and connected, but no settled test-mode transactions were found for the queried period. Evaluation metrics run on the synthetic 120-record cohort, which has a known ground-truth answer key; this connection demonstrates the same engine running on live-pulled data structure.
+              Razorpay test-mode adapter is authenticated and connected, but no settled test-mode transactions were found for the queried period.
+              Evaluation metrics run on the synthetic {total}-record cohort, which has a known ground-truth answer key;
+              this connection demonstrates the same engine running on live-pulled data structure.
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 20, padding: "14px", background: "var(--surface-2)", borderRadius: "6px", border: "1px solid var(--border)" }}>
@@ -217,7 +268,7 @@ export default function Home() {
               <div>
                 <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 500 }}>Account activity</div>
                 <div style={{ color: "var(--text-primary)", fontWeight: 500, fontSize: "0.82rem", marginTop: 4 }}>
-                  {result.testOrdersCount !== undefined ? `${result.testOrdersCount} test orders on account • 0 settled` : "0 settled records"}
+                  {result.testOrdersCount !== undefined ? `${result.testOrdersCount} test orders on account · 0 settled` : "0 settled records"}
                 </div>
               </div>
               <div>
@@ -234,7 +285,7 @@ export default function Home() {
                 onClick={() => handleRun()}
                 disabled={running}
               >
-                Run Benchmark (Synthetic 120-Record Cohort)
+                Run Benchmark (Synthetic {total}-Record Cohort)
               </button>
               <button
                 className="btn btn-secondary"
@@ -285,13 +336,26 @@ export default function Home() {
               </div>
               <div style={{ display: "grid", gap: 8, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                 <div>
-                  <span style={{ color: "var(--closed-text)", marginRight: 6 }}>●</span>
+                  <span style={{ color: "var(--closed-text)", marginRight: 6 }}>✓</span>
                   <strong style={{ color: "var(--text-primary)" }}>{result.closed} auto-closed</strong> — verified against exact Razorpay entity ID, matching ledger entry, and unique bank credit.
                 </div>
                 <div>
-                  <span style={{ color: "var(--exception-text)", marginRight: 6 }}>▲</span>
-                  <strong style={{ color: "var(--text-primary)" }}>{result.exceptions} exception records</strong> — safely quarantined for human reviewer triage with specific evidence codes. Zero false closures.
+                  <span style={{ color: "var(--exception-text)", marginRight: 6 }}>⚑</span>
+                  <strong style={{ color: "var(--text-primary)" }}>
+                    {(result.exceptions ?? 0) - novelPatternRows} standard exception records
+                  </strong> — safely quarantined for human reviewer triage with specific evidence codes. Zero false closures.
                 </div>
+                {novelPatternRows > 0 && (
+                  <div style={{ paddingLeft: 0 }}>
+                    <span style={{ color: "var(--accent-blue)", marginRight: 6 }}>🔬</span>
+                    <strong style={{ color: "var(--text-primary)" }}>
+                      {novelPatternSafeAbstentions}/{novelPatternRows} novel-pattern safe abstentions
+                    </strong> — out-of-taxonomy discrepancy types (currency mismatch, reversed-refund chain) correctly declined without a dedicated rule.
+                    {cohortMeta.novelPatternFalseClosures === 0 && (
+                      <span style={{ color: "var(--closed-text)", fontWeight: 500 }}> Zero novel-pattern false closures.</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

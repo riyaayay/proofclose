@@ -27,7 +27,7 @@ function loadMetrics(): Metrics | null {
       algorithmVersion: run.algorithmVersion,
       inputSha256: fixture.inputSha256,
       cohortSeed: 20260904,
-      cohortRows: 120,
+      cohortRows: 122,
       generatedAt: new Date().toISOString(),
     } as Metrics;
   } catch {
@@ -101,7 +101,10 @@ export default function MetricsPage() {
             Evaluation Metrics
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", maxWidth: 680, margin: 0, lineHeight: 1.6 }}>
-            Empirical evaluation against the synthetic 120-record ground-truth test cohort. Metrics reflect strict financial safety constraints: auto-close operations require complete, deterministic evidence; ambiguous or disputed entries are routed to exceptions.
+            Empirical evaluation against the synthetic {metrics?.cohortRows ?? 122}-record ground-truth test cohort
+            ({metrics?.taxonomyTotal ?? 120} taxonomy rows + {(metrics?.novelPatternRows ?? 2)} novel-pattern out-of-taxonomy rows).
+            Metrics reflect strict financial safety constraints: auto-close operations require complete, deterministic evidence;
+            ambiguous or disputed entries are routed to exceptions.
           </p>
         </div>
 
