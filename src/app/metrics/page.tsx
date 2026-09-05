@@ -101,8 +101,8 @@ export default function MetricsPage() {
             Evaluation Metrics
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", maxWidth: 680, margin: 0, lineHeight: 1.6 }}>
-            Empirical evaluation against the synthetic {metrics?.cohortRows ?? 122}-record ground-truth test cohort
-            ({metrics?.taxonomyTotal ?? 120} taxonomy rows + {(metrics?.novelPatternRows ?? 2)} novel-pattern out-of-taxonomy rows).
+            Empirical evaluation against the synthetic {metrics?.total ?? 122}-record cohort
+            ({metrics?.taxonomyTotal ?? 120} standard-taxonomy rows + {metrics?.novelPatternRows ?? 2} out-of-taxonomy novel-pattern rows).
             Metrics reflect strict financial safety constraints: auto-close operations require complete, deterministic evidence;
             ambiguous or disputed entries are routed to exceptions.
           </p>
