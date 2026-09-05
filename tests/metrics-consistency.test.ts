@@ -10,30 +10,34 @@ describe("metrics mathematical consistency guard", () => {
     const truth = await loadTruth();
     const m = evaluate(run.results, truth);
 
-    // 1. Prediction conservation
+    // 1. Prediction conservation (all 122 rows)
     expect(m.predictedClosed + m.predictedExceptions).toBe(m.total);
     expect(m.expectedClosed + m.expectedExceptions).toBe(m.total);
 
-    // 2. Closed precision consistency: closePrecision * predictedClosed === correctClosed
+    // 2. Novel-row partition is consistent
+    expect(m.taxonomyTotal + m.novelPatternRows).toBe(m.total);
+    expect(m.novelPatternSafeAbstentions + m.novelPatternFalseClosures).toBe(m.novelPatternRows);
+
+    // 3. Closed precision consistency
     expect(m.closePrecision).not.toBeNull();
     expect(Math.round(m.closePrecision! * m.predictedClosed)).toBe(m.correctClosed);
 
-    // 3. Close recall consistency: closeRecall * expectedClosed === correctClosed
+    // 4. Close recall consistency
     expect(m.closeRecall).not.toBeNull();
     expect(Math.round(m.closeRecall! * m.expectedClosed)).toBe(m.correctClosed);
 
-    // 4. Financial accuracy consistency:
-    // (correctClosed + correctHardExceptions) === financialStateAccuracy * total
+    // 5. Financial accuracy over taxonomy rows only
     expect(m.financialStateAccuracy).not.toBeNull();
     expect(m.correctClosed + m.correctHardExceptions).toBe(
-      Math.round(m.financialStateAccuracy! * m.total)
+      Math.round(m.financialStateAccuracy! * m.taxonomyTotal)
     );
 
-    // 5. Zero false closures safety invariant
+    // 6. Zero false closures (all rows including novel)
     expect(m.falseClosures).toBe(0);
+    expect(m.novelPatternFalseClosures).toBe(0);
 
-    // 6. Conservative abstention breakdown:
-    // predictedExceptions = correctHardExceptions + conservativeAbstentions + (any missed exceptions)
-    expect(m.predictedExceptions).toBe(m.correctHardExceptions + m.conservativeAbstentions);
+    // 7. Exception breakdown over taxonomy rows
+    const taxonomyPredictedExceptions = m.predictedExceptions - m.novelPatternSafeAbstentions;
+    expect(taxonomyPredictedExceptions).toBe(m.correctHardExceptions + m.conservativeAbstentions);
   });
 });

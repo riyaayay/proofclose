@@ -125,6 +125,86 @@ export function generateBenchmarkCohort(seed = 20260904): {
     if (index === 40) bank.push({ bankTxnId: `bank-${settlementId}-b`, bookedAt: "2026-09-02T10:00:00Z", creditPaise: total, narration: "RAZORPAY SETTLEMENT", utr: `UTR${index}B` });
   }
 
+  // Novel rows 121–122 (same as in generate-fixture.ts)
+  settlement.push({
+    settlementId: "setl_novel_121",
+    entityType: "payment" as EntityType,
+    entityId: "pay_novel_0121",
+    createdAt: "2026-09-01T10:00:00Z",
+    settledAt: "2026-09-02T06:00:00Z",
+    grossPaise: 1500000,
+    feePaise: 30000,
+    taxPaise: 5400,
+    netPaise: 1464600,
+    referenceId: "ORD-121",
+    rawSourceId: "rp-121",
+  });
+  ledger.push({
+    ledgerId: "led-novel-121",
+    entityType: "payment" as EntityType,
+    razorpayEntityId: "pay_novel_0121",
+    merchantReference: "ORD-121",
+    grossPaise: 15000,
+    feePaise: 300,
+    taxPaise: 54,
+    netPaise: 14646,
+    status: "captured" as const,
+    occurredAt: "2026-09-01T10:00:00Z",
+  });
+  bank.push({
+    bankTxnId: "bank-setl-novel-121-a",
+    bookedAt: "2026-09-02T09:00:00Z",
+    creditPaise: 1464600,
+    narration: "RAZORPAY SETTLEMENT",
+    utr: "UTR121A",
+  });
+  truth.push({
+    settlementRowId: "rp-121",
+    financialTruth: "HARD_EXCEPTION",
+    expectedControllerDecision: "EXCEPTION",
+    scenario: "NOVEL_UNHANDLED",
+  });
+
+  const refundGross = 85000;
+  settlement.push({
+    settlementId: "setl_novel_122",
+    entityType: "refund" as EntityType,
+    entityId: "refund_novel_0122",
+    createdAt: "2026-09-01T10:00:00Z",
+    settledAt: "2026-09-02T06:00:00Z",
+    grossPaise: refundGross,
+    feePaise: 0,
+    taxPaise: 0,
+    netPaise: -refundGross,
+    referenceId: "ORD-122",
+    rawSourceId: "rp-122",
+  });
+  ledger.push({
+    ledgerId: "led-novel-122",
+    entityType: "refund" as EntityType,
+    razorpayEntityId: "refund_novel_0122",
+    merchantReference: "ORD-122",
+    grossPaise: refundGross,
+    feePaise: 0,
+    taxPaise: 0,
+    netPaise: -refundGross,
+    status: "void" as const,
+    occurredAt: "2026-09-01T10:00:00Z",
+  });
+  bank.push({
+    bankTxnId: "bank-setl-novel-122-a",
+    bookedAt: "2026-09-02T09:00:00Z",
+    creditPaise: -refundGross,
+    narration: "NEFT INWARD CR CLEARING REF 20260902",
+    utr: "UTR122A",
+  });
+  truth.push({
+    settlementRowId: "rp-122",
+    financialTruth: "HARD_EXCEPTION",
+    expectedControllerDecision: "EXCEPTION",
+    scenario: "NOVEL_UNHANDLED",
+  });
+
   const settlementCsv = csv(settlement);
   const ledgerCsv = csv(ledger);
   const bankCsv = csv(bank);

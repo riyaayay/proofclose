@@ -13,17 +13,23 @@ describe("fixture reproducibility", () => {
     expect(existsSync("data/truth/expected_outcomes.csv")).toBe(true);
   });
 
-  it("settlement CSV has 120 rows", () => {
+  it("settlement CSV has 122 rows (120 baseline + 2 novel-pattern rows)", () => {
     const content = readFileSync("data/input/settlement_recon.csv", "utf-8");
     const lines = content.trim().split("\n");
-    // 1 header + 120 data rows
-    expect(lines.length).toBe(121);
+    // 1 header + 122 data rows
+    expect(lines.length).toBe(123);
   });
 
-  it("truth CSV has 120 rows", () => {
+  it("truth CSV has 122 rows", () => {
     const content = readFileSync("data/truth/expected_outcomes.csv", "utf-8");
     const lines = content.trim().split("\n");
-    expect(lines.length).toBe(121);
+    expect(lines.length).toBe(123);
+  });
+
+  it("truth CSV includes 2 NOVEL_UNHANDLED rows", () => {
+    const content = readFileSync("data/truth/expected_outcomes.csv", "utf-8");
+    const novelRows = content.split("\n").filter(line => line.includes("NOVEL_UNHANDLED"));
+    expect(novelRows.length).toBe(2);
   });
 
   it("re-running the generator produces an identical SHA-256", () => {

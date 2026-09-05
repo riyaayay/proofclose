@@ -2,6 +2,8 @@
 
 One-sentence controller loop: `settlement row → merchant ledger → bank deposit → close or exception`.
 
+[![CI](https://github.com/riyaayay/proofclose/actions/workflows/test.yml/badge.svg)](https://github.com/riyaayay/proofclose/actions/workflows/test.yml)
+
 **Live URL:** [proofclose.vercel.app](https://proofclose.vercel.app/)
 
 ---
@@ -22,7 +24,7 @@ honest controller outcome.
 | Next.js web application & SQLite audit store | **Real** — local full-stack controller with reviewer disposition audit log |
 | Deterministic evidence engine | **Real** — integer-paise arithmetic, zero fuzzy matching, typed exception taxonomy |
 | Razorpay Test Mode adapter | **Real** — authenticated, read-only `GET /v1/settlements/recon/combined` client & schema validator |
-| 120-record evaluation cohort | **Synthetic** — seeded (20260904), committed, independently sampled entity types & scenarios |
+| 122-record evaluation cohort | **Synthetic** — seeded (20260904), committed, independently sampled entity types & scenarios |
 | Reported controller metrics | **Synthetic cohort only** — the reported accuracy and recall metrics run against the synthetic 120-record cohort because it possesses a known, verified ground-truth answer key. Live test-mode reconciliation can also be initiated via `POST /api/reconcile?source=razorpay`. |
 
 ---
@@ -55,30 +57,33 @@ npm run dev
 
 ---
 
-## Metrics (synthetic cohort, seed 20260904)
+## Metrics (synthetic cohort, seed 20260904, 122 rows)
+
+> Snapshot from a run on 2026-09-05 — reproducible via `npm run evaluate`; see `docs/metrics.json` for the full committed output.
+>
+> **Note on sample size:** With ~3 samples per exception category, per-category precision/recall are indicative of algorithmic behaviour, not statistically robust estimates. A production validation set would need materially more samples per category. See `docs/METRICS.md` for the full statistical-limits disclosure.
 
 Metrics are computed by `npm run evaluate` and written to `docs/metrics.json`.
-The table below shows the *structure* of what is computed — run the pipeline to get the real numbers.
 
-| Metric | Formula | Notes |
-|---|---|---|
-| Auto-Close Match Rate | `correct_closed / total` | Overall throughput |
-| Close Precision | `correct_closed / predicted_closed` | Must be 100% (no false closures) |
-| Close Recall (strict) | `correct_closed / expected_closed` | Recall against expected decisions only |
-| Closeability Recall | `correct_closed / financial_closeable` | Lower when abstentions present — see note |
-| Hard-Exception Recall | `correct_hard_exceptions / hard_exceptions` | Coverage of genuinely unresolvable rows |
-| Financial-State Accuracy | `(correct_closed + correct_hard_exc) / total` | Combined accuracy |
-| Conservative Abstentions | count | Rows the engine refused to close for safety |
-| **False Closures** | `predicted_closed − correct_closed` | **Must be 0** |
+| Metric | Value | Formula | Notes |
+|---|---|---|---|
+| Auto-Close Match Rate | **80.8%** | `correct_closed / taxonomy_total` | 97/120 overall throughput |
+| Close Precision | **100%** | `correct_closed / predicted_closed` | Zero false closures |
+| Close Recall (strict) | **100%** | `correct_closed / expected_closed` | All expected closures executed |
+| Closeability Recall | **97%** | `correct_closed / financial_closeable` | 3 conservative abstentions on narration |
+| Hard-Exception Recall | **100%** | `correct_hard_exceptions / hard_exceptions` | All 20 genuine exceptions caught |
+| Financial-State Accuracy | **97.5%** | `(correct_closed + correct_hard_exc) / taxonomy_total` | Combined accuracy |
+| Conservative Abstentions | **3** | count | Rows refused for safety (narration unverifiable) |
+| **False Closures** | **0** | `predicted_closed − correct_closed` | **Must be 0 — enforced by CI** |
+| Novel-Pattern Safe Abstentions | **2/2** | novel rows → EXCEPTION | Both out-of-taxonomy rows correctly abstained |
+
 
 > **Close Recall vs Closeability Recall:** The three `UNVERIFIED_BANK_NARRATION` rows are _financially_ closeable
 > in the data-generating world, but the controller deliberately abstains because bank narration alone is not
 > sufficient proof. This produces `closeabilityRecall < closeRecall`. Both numbers are reported and labelled
 > separately. Conservative abstentions are a safety feature, not errors.
 
-Run `npm run evaluate` to produce `docs/metrics.json` with the actual values and run provenance.
-
-See `docs/METRICS.md` for confusion matrix definitions.
+See `docs/METRICS.md` for confusion matrix definitions and the full sample-size disclosure.
 
 ---
 

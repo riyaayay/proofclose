@@ -15,31 +15,32 @@ describe("vercel serverless simulation", () => {
     expect(db.name).toContain(os.tmpdir());
 
     const { settlementRows, ledgerRows, bankCredits } = await loadFixtureInputs();
-    expect(settlementRows.length).toBe(120);
+    expect(settlementRows.length).toBe(122);
     expect(ledgerRows.length).toBeGreaterThan(0);
     expect(bankCredits.length).toBeGreaterThan(0);
 
     const run = reconcile(settlementRows, ledgerRows, bankCredits);
-    expect(run.results.length).toBe(120);
+    expect(run.results.length).toBe(122);
 
     const closedCount = run.results.filter(r => r.decision === "CLOSED").length;
     const exceptionCount = run.results.filter(r => r.decision === "EXCEPTION").length;
     expect(closedCount).toBe(97);
-    expect(exceptionCount).toBe(23);
+    expect(exceptionCount).toBe(25);
 
     await saveRun(run);
 
     const retrieved = await getRun(run.runId);
     expect(retrieved).not.toBeNull();
     expect(retrieved!.runId).toBe(run.runId);
-    expect(retrieved!.results.length).toBe(120);
+    expect(retrieved!.results.length).toBe(122);
 
     const truth = await loadTruth();
-    expect(truth.length).toBe(120);
+    expect(truth.length).toBe(122);
 
     const metrics = evaluate(run.results, truth);
     expect(metrics.predictedClosed).toBe(97);
-    expect(metrics.predictedExceptions).toBe(23);
+    expect(metrics.novelPatternSafeAbstentions).toBe(2);
+    expect(metrics.novelPatternFalseClosures).toBe(0);
     expect(metrics.autoCloseMatchRate).toBeCloseTo(0.8083, 3);
   });
 });

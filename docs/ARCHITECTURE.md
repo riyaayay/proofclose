@@ -59,3 +59,16 @@ The benchmark engine always runs against the committed synthetic cohort — not 
 - `RAZORPAY_KEY_SECRET` is server-side only, in environment variables, never in client bundle.
 - No write endpoint to Razorpay. No ability to move money, post refunds, or accept disputes.
 - `.env.local` and `data/*.db` are in `.gitignore`.
+
+---
+
+## Explicitly out of scope for this cohort
+
+The following discrepancy classes are not handled by the current engine. Each entry states why it is out of scope for this cohort and how the existing architecture would extend to support it.
+
+| Edge case | Out-of-scope rationale | Extension path |
+|---|---|---|
+| **Multi-currency settlements** | All amounts in this cohort are INR paise; `SettlementRow` and `LedgerRow` have no currency-code field, so the engine cannot detect cross-currency mismatches explicitly (row 121 exercises the safe-fallthrough behaviour via AMOUNT_DELTA). | Add a `currencyCode` field to both types; the evidence engine's first check would assert `settlement.currencyCode === ledger.currencyCode`, emitting a new `CURRENCY_MISMATCH` exception code before any paise comparison runs. |
+| **TDS / tax-threshold-triggered amount adjustments** | TDS deductions are a function of merchant PAN status, annual payout volume, and tax year — none of which are present in the synthetic cohort's data model. | Extend `LedgerRow` with `tdsDeductedPaise` and `tdsThresholdApplicable`; the amount-match rule would compute `expectedNet = grossPaise - feePaise - taxPaise - tdsDeductedPaise` before the equality check. |
+| **Negative adjustments / clawbacks** | The cohort includes positive-amount adjustments only; negative adjustment rows would produce a negative `netPaise` on `SettlementRow`, which the current bank-credit match logic (comparing `creditPaise` to `expectedCredit`) would fail to find because bank debits and credits are in separate tables. | Add a `bankDebit` table alongside `BankCredit`; the control-total check would resolve the sign of `netPaise` and route to the appropriate table before amount comparison. |
+| **Cross-settlement-cycle partial payouts** | Each settlement batch in this cohort settles exactly once — the control-total check assumes `one settlement batch → one bank credit`. A single order settling across two batches would split into two partial credits that each fail the exact-amount match. | Introduce a `partialSettlementGroup` field linking related batches; the bank-credit step would sum credits within a group before comparing to the order gross, and emit a new `PARTIAL_SETTLEMENT_SPLIT` code when grouping is required but group membership is ambiguous. |
