@@ -6,23 +6,19 @@ export default defineConfig({
     globals: true,
     environment: "node",
     testTimeout: 20000,
-    // Run all test files inside a single forked process.
-    // This is required because better-sqlite3 is a native C++ addon that
-    // cannot safely be loaded across multiple worker forks — doing so causes
-    // SIGSEGV on Linux CI runners (Node.js ABI mismatch in the child process
-    // memory space).  A single fork loads the addon once and shares it across
-    // all test files, eliminating the crash without disabling any test.
+    // Run every test file in a single forked process (not N separate forks).
+    // better-sqlite3 is a native C++ addon.  When vitest spawns a new fork for
+    // each test file the addon can SIGSEGV if the child ABI doesn't exactly
+    // match the prebuilt .node binary.  singleFork loads the addon once and
+    // shares it, eliminating the crash without disabling any test.
+    // Note: poolOptions was removed in vitest v4; singleFork is now top-level.
     pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    singleFork: true,
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
       include: ["src/core/**/*.ts"],
-      exclude: ["src/core/audit.ts"], // requires SQLite, covered by integration
+      exclude: ["src/core/audit.ts"], // requires SQLite, covered by integration tests
     },
   },
   resolve: {
