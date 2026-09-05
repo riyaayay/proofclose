@@ -21,10 +21,10 @@
   "exceptionPrecision": 0.8695652173913043,
   "hardExceptionRecall": 1,
   "financialStateAccuracy": 0.975,
-  "runId": "run_5rUpD5__HnXA",
+  "runId": "run_pUIPr5ElYsWl",
   "algorithmVersion": "1.0.0",
-  "inputSha256": "4d6b8c133255511f05e525279ab2897605d3406987f4a2ff309afe9033d496b8",
-  "cohortSeed": 20260904,
-  "cohortRows": 122,
-  "generatedAt": "2026-09-05T13:12:07.008Z"
+  "inputSha256": "aa8bf030a86c261ab4bda0a01ac2fe7c5894d049e2d46572a4fbab12e474a709",
+  "cohortSeed": 47181063,
+  "cohortRows": 120,
+  "generatedAt": "2026-09-05T17:00:22.176Z"
 }
